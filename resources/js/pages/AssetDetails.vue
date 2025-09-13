@@ -22,6 +22,8 @@ interface AssetDetails {
 const loading = ref(true);
 const error = ref<string | null>(null);
 const asset = ref<AssetDetails | null>(null);
+const isFavorite = ref<boolean>(false);
+const toggling = ref<boolean>(false);
 
 const fetchDetails = async () => {
   if (!id.value) return;
@@ -38,8 +40,51 @@ const fetchDetails = async () => {
   }
 };
 
-onMounted(fetchDetails);
-watch(id, fetchDetails);
+const fetchFavoriteStatus = async () => {
+  if (!id.value) return;
+  try {
+    const res = await fetch('/api/favorites');
+    if (!res.ok) throw new Error('Failed to load favorites');
+    const list: Array<{ asset_id: string }> = await res.json();
+    isFavorite.value = !!list.find((f) => f.asset_id === id.value);
+  } catch (e) {
+    // non-fatal
+    console.warn(e);
+  }
+};
+
+const toggleFavorite = async () => {
+  if (!id.value || toggling.value) return;
+  const original = isFavorite.value;
+  isFavorite.value = !original; // optimistic
+  toggling.value = true;
+  try {
+    if (!original) {
+      const res = await fetch('/api/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetId: id.value }),
+      });
+      if (!res.ok) throw new Error('Failed to favorite');
+    } else {
+      const res = await fetch(`/api/favorites/${encodeURIComponent(id.value)}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) throw new Error('Failed to unfavorite');
+    }
+  } catch (e) {
+    isFavorite.value = original;
+    console.error(e);
+    alert('Unable to update favorite. Please try again.');
+  } finally {
+    toggling.value = false;
+  }
+};
+
+onMounted(async () => {
+  await Promise.all([fetchDetails(), fetchFavoriteStatus()]);
+});
+watch(id, async () => {
+  await Promise.all([fetchDetails(), fetchFavoriteStatus()]);
+});
 
 const price = () => {
   const v = asset.value?.market_data?.current_price?.usd;
@@ -60,9 +105,19 @@ const img = () => {
 <template>
   <div class="min-h-screen bg-gray-50 text-gray-900">
     <header class="sticky top-0 z-10 bg-white/80 backdrop-blur border-b border-gray-200">
-      <div class="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4">
-        <button class="text-sm text-gray-600 hover:underline" @click="router.visit('/')">← Back</button>
-        <h1 class="text-xl font-semibold truncate">Asset Details</h1>
+      <div class="max-w-3xl mx-auto px-4 py-4 flex items-center gap-4 justify-between">
+        <div class="flex items-center gap-4 min-w-0">
+          <button class="text-sm text-gray-600 hover:underline" @click="router.visit('/')">← Back</button>
+          <h1 class="text-xl font-semibold truncate">Asset Details</h1>
+        </div>
+        <button
+          class="text-2xl leading-none select-none"
+          :aria-pressed="isFavorite"
+          :title="isFavorite ? 'Unfavorite' : 'Favorite'"
+          @click="toggleFavorite"
+        >
+          <span :class="isFavorite ? 'text-yellow-500' : 'text-gray-300'">{{ isFavorite ? '★' : '☆' }}</span>
+        </button>
       </div>
     </header>
 
@@ -116,6 +171,8 @@ const img = () => {
 .text-red-800 { color: var(--red-800); }
 .text-green-600 { color: var(--green-600); }
 .text-red-600 { color: var(--red-600); }
+.text-yellow-500 { color: #eab308; }
+.text-gray-300 { color: #d1d5db; }
 .border { border: 1px solid #e5e7eb; }
 .border-gray-200 { border-color: var(--gray-200); }
 .rounded-lg { border-radius: .5rem; }

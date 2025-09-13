@@ -2,12 +2,16 @@
 
 namespace Tests\Feature;
 
+use App\Models\Favorite;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class AssetsApiTest extends TestCase
 {
+    use RefreshDatabase;
+
     public function test_assets_list_returns_ok_and_expected_shape(): void
     {
         Cache::clear();
@@ -33,6 +37,38 @@ class AssetsApiTest extends TestCase
                 'image' => 'https://assets/bitcoin.png',
                 'current_price' => 50000,
                 'price_change_percentage_24h' => 1.23,
+                'is_favorite' => false,
+            ]]);
+    }
+
+    public function test_assets_list_marks_favorites_true_when_exists(): void
+    {
+        Cache::clear();
+        Favorite::create(['asset_id' => 'bitcoin']);
+
+        Http::fake([
+            'api.coingecko.com/*' => Http::response([
+                [
+                    'id' => 'bitcoin',
+                    'name' => 'Bitcoin',
+                    'symbol' => 'btc',
+                    'image' => 'https://assets/bitcoin.png',
+                    'current_price' => 50000,
+                    'price_change_percentage_24h' => 1.23,
+                ],
+            ], 200),
+        ]);
+
+        $this->getJson('/api/assets')
+            ->assertOk()
+            ->assertJson([[
+                'id' => 'bitcoin',
+                'name' => 'Bitcoin',
+                'symbol' => 'BTC',
+                'image' => 'https://assets/bitcoin.png',
+                'current_price' => 50000,
+                'price_change_percentage_24h' => 1.23,
+                'is_favorite' => true,
             ]]);
     }
 

@@ -9,6 +9,7 @@ type Asset = {
   image: string;
   current_price: number;
   price_change_percentage_24h: number | null;
+  is_favorite: boolean;
 };
 
 const loading = ref(true);
@@ -37,6 +38,34 @@ const pct = (n: number | null) => n === null ? '—' : `${n.toFixed(2)}%`;
 const hasData = computed(() => !loading.value && !error.value && assets.value.length > 0);
 
 const goTo = (id: string) => router.visit(`/assets/${id}`);
+
+const toggling = ref<Record<string, boolean>>({});
+
+const toggleFavorite = async (a: Asset) => {
+  if (toggling.value[a.id]) return;
+  const original = a.is_favorite;
+  a.is_favorite = !original; // optimistic
+  toggling.value[a.id] = true;
+  try {
+    if (!original) {
+      const res = await fetch('/api/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetId: a.id }),
+      });
+      if (!res.ok) throw new Error('Failed to favorite');
+    } else {
+      const res = await fetch(`/api/favorites/${encodeURIComponent(a.id)}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) throw new Error('Failed to unfavorite');
+    }
+  } catch (err) {
+    a.is_favorite = original; // revert on error
+    console.error(err);
+    alert('Unable to update favorite. Please try again.');
+  } finally {
+    toggling.value[a.id] = false;
+  }
+};
 </script>
 
 <template>
@@ -45,7 +74,8 @@ const goTo = (id: string) => router.visit(`/assets/${id}`);
       <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
         <h1 class="text-xl font-semibold">Lumina • Assets</h1>
         <nav class="text-sm">
-          <a href="/" class="hover:underline">Home</a>
+          <a href="/" class="hover:underline mr-3">Home</a>
+          <a href="/favorites" class="hover:underline">Favorites</a>
         </nav>
       </div>
     </header>
@@ -61,12 +91,22 @@ const goTo = (id: string) => router.visit(`/assets/${id}`);
           @click="goTo(a.id)"
           class="group text-left rounded-lg border border-gray-200 bg-white p-4 hover:border-gray-300 hover:shadow-sm transition"
         >
-          <div class="flex items-center gap-3">
-            <img :src="a.image" :alt="a.name" class="size-10 rounded-full border" />
-            <div class="min-w-0">
-              <div class="font-medium truncate">{{ a.name }}</div>
-              <div class="text-xs uppercase text-gray-500">{{ a.symbol }}</div>
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <img :src="a.image" :alt="a.name" class="size-10 rounded-full border" />
+              <div class="min-w-0">
+                <div class="font-medium truncate">{{ a.name }}</div>
+                <div class="text-xs uppercase text-gray-500">{{ a.symbol }}</div>
+              </div>
             </div>
+            <button
+              class="ml-3 text-xl leading-none select-none"
+              :aria-pressed="a.is_favorite"
+              :title="a.is_favorite ? 'Unfavorite' : 'Favorite'"
+              @click.stop="toggleFavorite(a)"
+            >
+              <span :class="a.is_favorite ? 'text-yellow-500' : 'text-gray-300'">{{ a.is_favorite ? '★' : '☆' }}</span>
+            </button>
           </div>
           <div class="mt-3 flex items-baseline justify-between">
             <div class="text-lg font-semibold">{{ formatted(a.current_price) }}</div>
@@ -95,6 +135,8 @@ const goTo = (id: string) => router.visit(`/assets/${id}`);
 .text-red-800 { color: var(--red-800); }
 .text-green-600 { color: var(--green-600); }
 .text-red-600 { color: var(--red-600); }
+.text-yellow-500 { color: #eab308; }
+.text-gray-300 { color: #d1d5db; }
 .border { border: 1px solid #e5e7eb; }
 .border-gray-200 { border-color: var(--gray-200); }
 .border-gray-300 { border-color: var(--gray-300); }

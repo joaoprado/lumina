@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Favorite;
 use App\Services\CoinGeckoClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +19,21 @@ class AssetsController
     {
         try {
             $assets = $this->client->listMarkets();
-            return response()->json($assets);
+
+            // Attach favorite status for each asset in the list
+            $ids = collect($assets)->pluck('id')->filter()->values();
+            $favoriteIds = Favorite::query()
+                ->whereIn('asset_id', $ids)
+                ->pluck('asset_id')
+                ->all();
+            $favoriteSet = array_flip($favoriteIds);
+
+            $assetsWithFavorites = array_map(function (array $a) use ($favoriteSet) {
+                $a['is_favorite'] = isset($favoriteSet[$a['id'] ?? null]);
+                return $a;
+            }, $assets);
+
+            return response()->json($assetsWithFavorites);
         } catch (\Throwable $e) {
             Log::error('Assets index failed', ['error' => $e->getMessage()]);
             return response()->json(['message' => 'Failed to fetch assets'], 500);
