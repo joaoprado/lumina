@@ -10,13 +10,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-class AssetsController
+readonly class AssetsController
 {
-    public function __construct(private readonly CoinGeckoClient $client)
-    {
-    }
+    public function __construct(private CoinGeckoClient $client) {}
 
-    public function index(Request $request): JsonResponse
+    public function index(): JsonResponse
     {
         try {
             $assets = $this->client->listMarkets();
@@ -31,12 +29,14 @@ class AssetsController
 
             $assetsWithFavorites = array_map(function (array $a) use ($favoriteSet) {
                 $a['is_favorite'] = isset($favoriteSet[$a['id'] ?? null]);
+
                 return $a;
             }, $assets);
 
             return response()->json($assetsWithFavorites);
         } catch (\Throwable $e) {
             Log::error('Assets index failed', ['error' => $e->getMessage()]);
+
             return response()->json(['message' => 'Failed to fetch assets'], 500);
         }
     }
@@ -48,6 +48,7 @@ class AssetsController
             if (empty($asset) || empty($asset['id'])) {
                 throw new NotFoundHttpException('Asset not found');
             }
+
             return response()->json($asset);
         } catch (NotFoundHttpException $e) {
             return response()->json(['message' => 'Asset not found'], 404);
@@ -56,9 +57,11 @@ class AssetsController
                 return response()->json(['message' => 'Asset not found'], 404);
             }
             Log::error('Asset details HTTP error', ['id' => $id, 'error' => $e->getMessage(), 'status' => optional($e->response)->status()]);
+
             return response()->json(['message' => 'Failed to fetch asset details'], 500);
         } catch (\Throwable $e) {
             Log::error('Asset details failed', ['id' => $id, 'error' => $e->getMessage()]);
+
             return response()->json(['message' => 'Failed to fetch asset details'], 500);
         }
     }
@@ -72,6 +75,7 @@ class AssetsController
             if (empty($chart)) {
                 throw new NotFoundHttpException('History not found');
             }
+
             return response()->json([
                 'id' => $id,
                 'days' => $days,
@@ -84,9 +88,11 @@ class AssetsController
                 return response()->json(['message' => 'Asset history not found'], 404);
             }
             Log::error('Asset history HTTP error', ['id' => $id, 'error' => $e->getMessage(), 'status' => optional($e->response)->status()]);
+
             return response()->json(['message' => 'Failed to fetch asset history'], 500);
         } catch (\Throwable $e) {
             Log::error('Asset history failed', ['id' => $id, 'error' => $e->getMessage()]);
+
             return response()->json(['message' => 'Failed to fetch asset history'], 500);
         }
     }

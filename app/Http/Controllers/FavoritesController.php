@@ -6,7 +6,7 @@ use App\Models\Favorite;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class FavoritesController
+readonly class FavoritesController
 {
     public function index(): JsonResponse
     {
@@ -33,6 +33,7 @@ class FavoritesController
     public function destroy(string $assetId): JsonResponse
     {
         Favorite::where('asset_id', $assetId)->delete();
+
         return response()->json(null, 204);
     }
 }

@@ -5,7 +5,6 @@ namespace App\Services;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
-use Illuminate\Http\Client\RequestException;
 
 class CoinGeckoClient
 {
@@ -14,6 +13,7 @@ class CoinGeckoClient
     public function listMarkets(): array
     {
         $cacheKey = 'coingecko.markets.top10';
+
         return Cache::remember($cacheKey, 60, function () {
             $response = Http::acceptJson()
                 ->retry(1, 200)
@@ -26,9 +26,10 @@ class CoinGeckoClient
                 ])->throw();
 
             $data = $response->json();
-            if (!is_array($data)) {
+            if (! is_array($data)) {
                 return [];
             }
+
             return array_map(function ($item) {
                 return [
                     'id' => $item['id'] ?? null,
@@ -45,6 +46,7 @@ class CoinGeckoClient
     public function getAsset(string $id): array
     {
         $cacheKey = 'coingecko.asset.'.$id;
+
         return Cache::remember($cacheKey, 60, function () use ($id) {
             $response = Http::acceptJson()
                 ->retry(1, 200)
@@ -52,9 +54,10 @@ class CoinGeckoClient
                 ->throw();
 
             $data = $response->json();
-            if (!is_array($data)) {
+            if (! is_array($data)) {
                 return [];
             }
+
             return [
                 'id' => $data['id'] ?? null,
                 'name' => $data['name'] ?? null,
@@ -74,6 +77,7 @@ class CoinGeckoClient
     {
         $days = max(1, min($days, 365));
         $cacheKey = 'coingecko.asset.'.$id.'.market_chart.'.$days;
+
         return Cache::remember($cacheKey, 60, function () use ($id, $days) {
             $response = Http::acceptJson()
                 ->retry(1, 200)
@@ -86,7 +90,6 @@ class CoinGeckoClient
             $prices = [];
             if (is_array($data) && isset($data['prices']) && is_array($data['prices'])) {
                 foreach ($data['prices'] as $row) {
-                    // Each row: [timestamp(ms), price]
                     if (is_array($row) && count($row) >= 2) {
                         $prices[] = [
                             'timestamp' => $row[0],
@@ -95,6 +98,7 @@ class CoinGeckoClient
                     }
                 }
             }
+
             return [
                 'prices' => $prices,
             ];

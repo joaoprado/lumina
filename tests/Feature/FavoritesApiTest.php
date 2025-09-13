@@ -16,7 +16,6 @@ class FavoritesApiTest extends TestCase
             ->assertCreated()
             ->assertJsonFragment(['asset_id' => 'bitcoin']);
 
-        // Duplicate should still return 201 with same resource but only one record exists
         $this->postJson('/api/favorites', ['assetId' => 'bitcoin'])
             ->assertCreated()
             ->assertJsonFragment(['asset_id' => 'bitcoin']);
@@ -43,7 +42,6 @@ class FavoritesApiTest extends TestCase
         $this->deleteJson('/api/favorites/bitcoin')
             ->assertNoContent();
 
-        // Deleting again should still be 204
         $this->deleteJson('/api/favorites/bitcoin')
             ->assertNoContent();
 

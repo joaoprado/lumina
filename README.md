@@ -113,10 +113,5 @@ Notes:
 - sqlite driver missing: enable pdo_sqlite and sqlite3 in php.ini
 - Vite HMR not updating: ensure npm run dev is active and APP_URL is correct
 - CoinGecko rate limits: responses are cached ~60s; clear cache with php artisan cache:clear during development
-- React widget during dev: If you see “@vitejs/plugin-react can't detect preamble”, ensure @viteReactRefresh exists in resources/views/app.blade.php (already added).
 
 
-## Notes for Reviewers
-- The app intentionally avoids external services beyond CoinGecko and uses SQLite for simplicity.
-- Tests cover core API functionality and caching behavior. Frontend unit tests are not configured (can be added with Vitest if desired).
-- The SSR build script is available in package.json, but SSR runtime is not required for this assessment.

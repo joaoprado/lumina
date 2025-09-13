@@ -9,7 +9,7 @@ use Tests\TestCase;
 
 class AssetHistoryApiTest extends TestCase
 {
-    use RefreshDatabase; // not strictly needed, but keeps consistency
+    use RefreshDatabase;
 
     public function test_asset_history_returns_ok_and_expected_shape(): void
     {
@@ -42,6 +42,7 @@ class AssetHistoryApiTest extends TestCase
         Http::fake([
             'api.coingecko.com/*' => function () use (&$calls) {
                 $calls++;
+
                 return Http::response([
                     'prices' => [
                         [1726200000000, 50000],

@@ -112,6 +112,7 @@ class AssetsApiTest extends TestCase
         Http::fake([
             'api.coingecko.com/*' => function () use (&$callCount) {
                 $callCount++;
+
                 return Http::response([
                     [
                         'id' => 'bitcoin',

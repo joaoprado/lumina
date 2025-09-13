@@ -18,6 +18,7 @@ class AssetsDetailsCacheAndErrorsTest extends TestCase
         Http::fake([
             'api.coingecko.com/*' => function () use (&$calls) {
                 $calls++;
+
                 return Http::response([
                     'id' => 'bitcoin',
                     'name' => 'Bitcoin',
