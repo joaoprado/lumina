@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Favorite;
 use App\Services\CoinGeckoClient;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -50,6 +51,12 @@ class AssetsController
             return response()->json($asset);
         } catch (NotFoundHttpException $e) {
             return response()->json(['message' => 'Asset not found'], 404);
+        } catch (RequestException $e) {
+            if ($e->response && $e->response->status() === 404) {
+                return response()->json(['message' => 'Asset not found'], 404);
+            }
+            Log::error('Asset details HTTP error', ['id' => $id, 'error' => $e->getMessage(), 'status' => optional($e->response)->status()]);
+            return response()->json(['message' => 'Failed to fetch asset details'], 500);
         } catch (\Throwable $e) {
             Log::error('Asset details failed', ['id' => $id, 'error' => $e->getMessage()]);
             return response()->json(['message' => 'Failed to fetch asset details'], 500);
@@ -72,6 +79,12 @@ class AssetsController
             ]);
         } catch (NotFoundHttpException $e) {
             return response()->json(['message' => 'Asset history not found'], 404);
+        } catch (RequestException $e) {
+            if ($e->response && $e->response->status() === 404) {
+                return response()->json(['message' => 'Asset history not found'], 404);
+            }
+            Log::error('Asset history HTTP error', ['id' => $id, 'error' => $e->getMessage(), 'status' => optional($e->response)->status()]);
+            return response()->json(['message' => 'Failed to fetch asset history'], 500);
         } catch (\Throwable $e) {
             Log::error('Asset history failed', ['id' => $id, 'error' => $e->getMessage()]);
             return response()->json(['message' => 'Failed to fetch asset history'], 500);
