@@ -69,4 +69,35 @@ class CoinGeckoClient
             ];
         });
     }
+
+    public function getMarketChart(string $id, int $days = 7): array
+    {
+        $days = max(1, min($days, 365));
+        $cacheKey = 'coingecko.asset.'.$id.'.market_chart.'.$days;
+        return Cache::remember($cacheKey, 60, function () use ($id, $days) {
+            $response = Http::acceptJson()
+                ->retry(1, 200)
+                ->get(self::BASE_URL.'/coins/'.urlencode($id).'/market_chart', [
+                    'vs_currency' => 'usd',
+                    'days' => $days,
+                ])->throw();
+
+            $data = $response->json();
+            $prices = [];
+            if (is_array($data) && isset($data['prices']) && is_array($data['prices'])) {
+                foreach ($data['prices'] as $row) {
+                    // Each row: [timestamp(ms), price]
+                    if (is_array($row) && count($row) >= 2) {
+                        $prices[] = [
+                            'timestamp' => $row[0],
+                            'price' => $row[1],
+                        ];
+                    }
+                }
+            }
+            return [
+                'prices' => $prices,
+            ];
+        });
+    }
 }

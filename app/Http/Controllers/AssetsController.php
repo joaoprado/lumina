@@ -55,4 +55,26 @@ class AssetsController
             return response()->json(['message' => 'Failed to fetch asset details'], 500);
         }
     }
+
+    public function history(string $id, Request $request): JsonResponse
+    {
+        try {
+            $days = (int) ($request->query('days', 7));
+            $days = max(1, min($days, 365));
+            $chart = $this->client->getMarketChart($id, $days);
+            if (empty($chart)) {
+                throw new NotFoundHttpException('History not found');
+            }
+            return response()->json([
+                'id' => $id,
+                'days' => $days,
+                'prices' => $chart['prices'] ?? [],
+            ]);
+        } catch (NotFoundHttpException $e) {
+            return response()->json(['message' => 'Asset history not found'], 404);
+        } catch (\Throwable $e) {
+            Log::error('Asset history failed', ['id' => $id, 'error' => $e->getMessage()]);
+            return response()->json(['message' => 'Failed to fetch asset history'], 500);
+        }
+    }
 }

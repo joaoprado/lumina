@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { onMounted, ref, watch, computed } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import AppHeader from '../components/AppHeader.vue';
-import { ArrowDownIcon, ArrowUpIcon } from '@heroicons/vue/20/solid'
+import { ArrowDownIcon, ArrowUpIcon, HeartIcon } from '@heroicons/vue/20/solid'
+import ReactSparkline from '../components/ReactSparkline.vue'
 
 const page = usePage();
 const id = ref<string>(page.props.id as string);
@@ -21,10 +22,19 @@ interface AssetDetails {
   description?: { en?: string } | string;
 }
 
+interface HistoryPoint { timestamp: number; price: number }
+
 const loading = ref(true);
 const error = ref<string | null>(null);
 const asset = ref<AssetDetails | null>(null);
+
+const historyLoading = ref(true);
+const historyError = ref<string | null>(null);
+const history = ref<HistoryPoint[]>([]);
+
+// Favorite state (copied pattern from Home.vue)
 const isFavorite = ref<boolean>(false);
+const toggling = ref<boolean>(false);
 
 const fetchDetails = async () => {
   if (!id.value) return;
@@ -42,24 +52,66 @@ const fetchDetails = async () => {
 };
 
 const fetchFavoriteStatus = async () => {
-  if (!id.value) return;
   try {
     const res = await fetch('/api/favorites');
-    if (!res.ok) throw new Error('Failed to load favorites');
-    const list: Array<{ asset_id: string }> = await res.json();
-    isFavorite.value = !!list.find((f) => f.asset_id === id.value);
-  } catch (e) {
-    // non-fatal
-    console.warn(e);
+    if (res.ok) {
+      const favs: Array<{ asset_id: string }> = await res.json();
+      isFavorite.value = !!favs.find(f => f.asset_id === id.value);
+    }
+  } catch {
+    // ignore
   }
 };
 
+const toggleFavorite = async () => {
+  if (!id.value || toggling.value) return;
+  const original = isFavorite.value;
+  isFavorite.value = !original; // optimistic
+  toggling.value = true;
+  try {
+    if (!original) {
+      const res = await fetch('/api/favorites', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assetId: id.value }),
+      });
+      if (!res.ok) throw new Error('Failed to favorite');
+    } else {
+      const res = await fetch(`/api/favorites/${encodeURIComponent(id.value)}`, { method: 'DELETE' });
+      if (!res.ok && res.status !== 204) throw new Error('Failed to unfavorite');
+    }
+  } catch (err) {
+    isFavorite.value = original; // revert on error
+    console.error(err);
+    alert('Unable to update favorite. Please try again.');
+  } finally {
+    toggling.value = false;
+  }
+};
+
+const fetchHistory = async (days = 7) => {
+  if (!id.value) return;
+  historyLoading.value = true;
+  historyError.value = null;
+  try {
+    const res = await fetch(`/api/assets/${encodeURIComponent(id.value)}/history?days=${days}`);
+    if (!res.ok) throw new Error(`Failed to load history: ${res.status}`);
+    const data = await res.json();
+    history.value = Array.isArray(data?.prices) ? data.prices : [];
+  } catch (e: any) {
+    historyError.value = e?.message ?? 'Unknown error fetching history';
+  } finally {
+    historyLoading.value = false;
+  }
+};
 
 onMounted(async () => {
-  await Promise.all([fetchDetails(), fetchFavoriteStatus()]);
+  await Promise.all([fetchDetails(), fetchHistory(7)]);
+  await fetchFavoriteStatus();
 });
 watch(id, async () => {
-  await Promise.all([fetchDetails(), fetchFavoriteStatus()]);
+  await Promise.all([fetchDetails(), fetchHistory(7)]);
+  await fetchFavoriteStatus();
 });
 
 const price = () => {
@@ -72,6 +124,16 @@ const pct = () => {
   return typeof v === 'number' ? `${v.toFixed(2)}%` : '—';
 };
 
+const formatUSD = (n: number) => new Intl.NumberFormat(undefined, { style: 'currency', currency: 'USD' }).format(n);
+const formatDateTime = (ms: number) => {
+  const d = new Date(ms);
+  return isNaN(d.getTime()) ? '' : d.toLocaleString();
+};
+
+// Descending order for history list (newest first)
+const historyDesc = computed(() => {
+  return [...history.value].sort((a, b) => b.timestamp - a.timestamp);
+});
 </script>
 
 <template>
@@ -87,6 +149,22 @@ const pct = () => {
       </template>
       <template v-else-if="asset">
         <div class="relative overflow-hidden rounded-lg bg-white px-4 pt-5 pb-6 shadow-sm sm:px-6 sm:pt-6">
+          <!-- Favorite toggle in top-right -->
+          <button
+            class="absolute top-3 right-3 text-xl leading-none select-none"
+            :aria-pressed="isFavorite"
+            :title="isFavorite ? 'Unfavorite' : 'Favorite'"
+            @click="toggleFavorite"
+          >
+            <HeartIcon
+              :class="[
+                isFavorite ? 'text-indigo-400' : 'text-gray-300',
+                'size-5 shrink-0'
+              ]"
+              aria-hidden="true"
+            />
+          </button>
+
           <div class="flex items-center gap-4">
             <img :src="asset.image" :alt="asset.name" class="w-16 h-16 rounded-full border border-slate-200" />
             <div class="min-w-0">
@@ -127,6 +205,49 @@ const pct = () => {
             <div class="text-sm mb-1 text-gray-500">Description</div>
             <p class="text-sm leading-6 text-gray-700" v-html="typeof asset.description === 'string' ? asset.description : (asset.description?.en || '')"></p>
           </div>
+        </div>
+
+        <!-- History Chart Card -->
+        <div class="mt-4 overflow-hidden rounded-lg bg-white p-4 shadow-sm">
+          <div class="flex items-center justify-between mb-2">
+            <div class="text-sm text-gray-500">Price (last 7 days)</div>
+          </div>
+
+          <template v-if="historyLoading">
+            <div class="text-gray-600">Loading history…</div>
+          </template>
+          <template v-else-if="historyError">
+            <div class="rounded border border-red-200 bg-red-50 p-3 text-red-800">{{ historyError }}</div>
+          </template>
+          <template v-else>
+            <!-- React sparkline widget only -->
+            <div class="overflow-x-auto">
+              <ReactSparkline :prices="history.map(h => h.price)" />
+            </div>
+          </template>
+        </div>
+
+        <!-- History List Card (separate) -->
+        <div class="mt-4 overflow-hidden rounded-lg bg-white p-4 shadow-sm">
+          <div class="text-sm text-gray-500 mb-2">Historical Prices</div>
+
+          <template v-if="historyLoading">
+            <div class="text-gray-600">Loading history…</div>
+          </template>
+          <template v-else-if="historyError">
+            <div class="rounded border border-red-200 bg-red-50 p-3 text-red-800">{{ historyError }}</div>
+          </template>
+          <template v-else>
+            <div v-if="history.length" class="max-h-64 overflow-y-auto -mx-4">
+              <ul role="list" class="divide-y divide-slate-200">
+                <li v-for="point in historyDesc" :key="point.timestamp" class="px-4 py-2 flex items-center justify-between">
+                  <span class="text-sm text-gray-600">{{ formatDateTime(point.timestamp) }}</span>
+                  <span class="text-sm font-medium text-gray-800">{{ formatUSD(point.price) }}</span>
+                </li>
+              </ul>
+            </div>
+            <div v-else class="text-gray-600">No history data</div>
+          </template>
         </div>
       </template>
       <template v-else>

@@ -6,6 +6,7 @@ use App\Http\Controllers\FavoritesController;
 
 Route::get('/assets', [AssetsController::class, 'index']);
 Route::get('/assets/{id}', [AssetsController::class, 'show']);
+Route::get('/assets/{id}/history', [AssetsController::class, 'history']);
 
 // Favorites
 Route::get('/favorites', [FavoritesController::class, 'index']);
