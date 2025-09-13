@@ -14,7 +14,7 @@ This repository implements the core features from the technical assessment plus 
 - Tests: PHPUnit 11 (sqlite in‑memory)
 - Optional extra: React 18 island for sparkline chart (@vitejs/plugin-react)
 
-Note on Octane: The original spec mentions Octane. It is not required to run the app and is not installed by default. You can adopt it later if desired (see notes below).
+Octane: Laravel Octane is installed in this project. You can run the app using Octane for a high‑performance dev server (see the Octane section below).
 
 
 ## Features
@@ -50,10 +50,12 @@ Note on Octane: The original spec mentions Octane. It is not required to run the
 - Run migrations: php artisan migrate
 
 4) Run in development
-- Convenience (recommended): composer run dev
+- Option A (Octane, recommended): composer run dev:octane
+  - Runs: php artisan octane:start --watch, pail logs, and npm run dev (Vite) concurrently
+- Option B (classic): composer run dev
   - Runs: php artisan serve, pail logs, and npm run dev (Vite) concurrently
-- Manual alternative:
-  - Terminal A: php artisan serve
+- Manual alternatives:
+  - Terminal A: php artisan octane:start --watch (or php artisan serve)
   - Terminal B: npm run dev
 
 5) Open the app
@@ -90,13 +92,20 @@ Test configuration (phpunit.xml) uses an in‑memory sqlite database and array c
 - History chart: 7‑day price history endpoint and UI. The list is displayed below the chart in a separate card and is sorted newest‑first, while the chart maintains natural left‑to‑right order.
 
 
-## Octane (optional)
-If you want to adopt Octane:
-- composer require laravel/octane
-- php artisan octane:install
-- php artisan octane:start --watch
+## Octane
+Laravel Octane is installed in this project. To run with Octane locally you still need one of the supported servers installed (Swoole PHP extension, RoadRunner binary, or FrankenPHP). If none are present, you can continue using the classic PHP server.
 
-Ensure you avoid sharing non‑bootstrapped state across requests. Flush caches or use proper singletons as needed. The app already uses Cache::remember with short TTLs for CoinGecko endpoints.
+Usage:
+- Install a server (pick one):
+  - Swoole: pecl install swoole && enable in php.ini
+  - RoadRunner: see https://roadrunner.dev for installation (rr binary)
+  - FrankenPHP: see https://frankenphp.dev
+- Start Octane: php artisan octane:start --watch
+- Or use the convenience script: composer run dev:octane
+
+Notes:
+- Avoid sharing non‑bootstrapped state across requests. The app primarily uses Laravel services and short‑lived caches.
+- You can switch back to the classic server anytime using composer run dev.
 
 
 ## Troubleshooting

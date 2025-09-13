@@ -12,8 +12,11 @@
         "php": "^8.2",
         "inertiajs/inertia-laravel": "^2.0",
         "laravel/framework": "^12.0",
+        "laravel/octane": "^2.5",
         "laravel/tinker": "^2.10.1",
-        "laravel/wayfinder": "^0.1.11"
+        "laravel/wayfinder": "^0.1.11",
+        "spiral/roadrunner-cli": "^2.6.0",
+        "spiral/roadrunner-http": "^3.3.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
@@ -56,6 +59,14 @@
         "dev": [
             "Composer\\Config::disableProcessTimeout",
             "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,logs,vite --kill-others"
+        ],
+        "octane": [
+            "Composer\\Config::disableProcessTimeout",
+            "php artisan octane:start --watch"
+        ],
+        "dev:octane": [
+            "Composer\\Config::disableProcessTimeout",
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185\" \"php artisan octane:start --watch\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=octane,logs,vite --kill-others"
         ],
         "dev:ssr": [
             "npm run build:ssr",
